@@ -1,0 +1,19 @@
+- import_tasks: vscode.yml
+n
+__pycache__
+
+# virtualenv
+/env
+/venv
+
+# Local releases
+*egg-info
+/build
+/dist
+
+# VSCode files
+.vscode
+
+# Local notes
+TODO.md
+
