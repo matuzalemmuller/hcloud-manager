@@ -24,7 +24,7 @@ Python script to manage my hetzner servers used for k3s studying.
 #   1 control plane
 #   1 maria db
 #   3 arm nodes
-#   3 x86 node
+#   3 x86 nodes
 ./manager.py --create --arm-nodes 3 --x86-nodes 3
 
 # Take snapshots and delete all servers

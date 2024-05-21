@@ -160,7 +160,7 @@ def create_servers(
     logger.info(f"Attaching internal IP address to control plane: 10.0.0.2")
     assign_ip = htz_client.servers.attach_to_network(
         server=control_plane.server, network=Network(id=4252606), ip="10.0.0.2"
-    ).wait_until_finished()
+    ).wait_until_finished(max_retries=500)
     htz_client.servers.power_on(control_plane.server)
     logger.info(
         f"Created control plane: {control_plane.server.name}. External IP: {control_plane.server.public_net.ipv6.ip}. Internal IP: 10.0.0.2"
@@ -172,7 +172,7 @@ def create_servers(
     logger.info(f"Attaching internal IP address to maria-db: 10.0.0.5")
     assign_ip = htz_client.servers.attach_to_network(
         server=db.server, network=Network(id=4252606), ip="10.0.0.5"
-    ).wait_until_finished()
+    ).wait_until_finished(max_retries=500)
     htz_client.servers.power_on(db.server)
     logger.info(
         f"Created db: {db.server.name}. External IP: {db.server.public_net.ipv6.ip}. Internal IP: 10.0.0.5"
@@ -191,7 +191,7 @@ def create_servers(
             server=node.server,
             network=Network(id=4252606),
             ip=internal_ip,
-        ).wait_until_finished()
+        ).wait_until_finished(max_retries=500)
         htz_client.servers.power_on(node.server)
         logger.info(
             f"Created node {node.server.name}. External IP: {node.server.public_net.ipv6.ip}. Internal IP: {internal_ip}"
@@ -274,12 +274,12 @@ def delete_servers(htz_client: Client, logger: logging):
         )
 
     # Wait until all snapshots are created before deleting servers
-    img_db.action.wait_until_finished()
-    img_cplane.action.wait_until_finished()
+    img_db.action.wait_until_finished(max_retries=500)
+    img_cplane.action.wait_until_finished(max_retries=500)
     if len(servers_node_x86) > 0:
-        img_node_x86.action.wait_until_finished()
+        img_node_x86.action.wait_until_finished(max_retries=500)
     if len(servers_node_arm) > 0:
-        img_node_arm.action.wait_until_finished()
+        img_node_arm.action.wait_until_finished(max_retries=500)
     logging.info("Completed")
 
     # Delete servers
