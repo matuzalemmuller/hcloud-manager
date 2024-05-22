@@ -67,6 +67,42 @@ def get_images(htz_client: Client, state: str):
     return images
 
 
+def list_running_servers(htz_client: Client, logger: logging):
+    """
+    Returns dictionary with lists of running servers.
+    :param htz_client:  hcloud client with valid token to perform read and write operations
+    :param logger:      logger to be used to print information to stdout.
+    :return:            dictionary with lists of running servers [BoundImage]
+    """
+    # Get list of all running servers
+    logger.info("Retrieving servers")
+    servers_db = htz_client.servers.get_all(label_selector="role=db", name="maria-db")
+    servers_cplane = htz_client.servers.get_all(label_selector="role=control-plane")
+    servers_node_x86 = htz_client.servers.get_all(label_selector="role=node-x86")
+    servers_node_arm = htz_client.servers.get_all(label_selector="role=node-arm")
+    if any(
+        x > 0
+        for x in [
+            len(servers_db),
+            len(servers_cplane),
+            len(servers_node_x86),
+            len(servers_node_arm),
+        ]
+    ):
+        logging.info(
+            f"Found running servers. Control plane: {len(servers_cplane)}. Arm64 nodes: {len(servers_node_arm)}. x86 nodes: {len(servers_node_x86)}. db: {len(servers_db)}."
+        )
+    else:
+        logging.info("No running servers")
+
+    return {
+        "servers_db": servers_db,
+        "servers_cplane": servers_cplane,
+        "servers_node_x86": servers_node_x86,
+        "servers_node_arm": servers_node_arm,
+    }
+
+
 def create_servers(
     htz_client: Client, n_arm_nodes: int, n_x86_nodes: int, logger: logging
 ):
@@ -83,6 +119,27 @@ def create_servers(
 
     if not n_x86_nodes:
         n_x86_nodes = 1
+
+    logger.info("Checking if there are already servers created")
+    servers = list_running_servers(htz_client, logger)
+
+    servers_db = servers["servers_db"]
+    servers_cplane = servers["servers_cplane"]
+    servers_node_x86 = servers["servers_node_x86"]
+    servers_node_arm = servers["servers_node_arm"]
+
+    if any(
+        x > 0
+        for x in [
+            len(servers_db),
+            len(servers_cplane),
+            len(servers_node_x86),
+            len(servers_node_arm),
+        ]
+    ):
+
+        logging.error(f"Can't create new servers until existing ones are deleted")
+        sys.exit(1)
 
     # Retrieve all current snapshots to create servers
     logger.info("Finding images")
@@ -207,6 +264,24 @@ def delete_servers(htz_client: Client, logger: logging):
     :param logger:      logger to be used to print information to stdout.
     :return:            void
     """
+    logger.info("Checking if there are servers running")
+    servers = list_running_servers(htz_client, logger)
+
+    servers_db = servers["servers_db"]
+    servers_cplane = servers["servers_cplane"]
+    servers_node_x86 = servers["servers_node_x86"]
+    servers_node_arm = servers["servers_node_arm"]
+
+    if (
+        len(servers_db)
+        == len(servers_cplane)
+        == len(servers_node_x86)
+        == len(servers_node_arm)
+        == 0
+    ):
+        logging.error(f"Exiting since there are no servers to delete")
+        sys.exit(1)
+
     # Retrieve 'old' snapshots so we can delete them. 'current' snapshots will become old
     logger.info("Retrieving existing images")
     images = get_images(htz_client, "old")
@@ -241,34 +316,27 @@ def delete_servers(htz_client: Client, logger: logging):
     logger.info("Completed")
 
     # Get list tof all running servers
-    logger.info("Retrieving servers")
-    servers_db = htz_client.servers.get_all(label_selector="role=db", name="maria-db")
-    servers_cplane = htz_client.servers.get_all(label_selector="role=control-plane")
-    servers_node_x86 = htz_client.servers.get_all(label_selector="role=node-x86")
-    servers_node_arm = htz_client.servers.get_all(label_selector="role=node-arm")
-    logging.info(
-        f"Found running servers. Control plane: {len(servers_cplane)}. Arm64 nodes: {len(servers_node_arm)}. x86 nodes: {len(servers_node_x86)}. db: {len(servers_db)}."
-    )
+    running_servers = list_running_servers(htz_client, logger)
 
     # Create snapshots for all server types. Only one node of each type will have a snapshot created (they should be ephemeral)
     logging.info("Creating snapshots from current servers")
-    if len(servers_db) > 0:
-        img_db = servers_db[0].create_image(
+    if len(running_servers["servers_db"]) > 0:
+        img_db = running_servers["servers_db"][0].create_image(
             description="maria-db-current",
             labels={"state": "current", "arch": "arm64", "role": "db"},
         )
-    if len(servers_cplane) > 0:
-        img_cplane = servers_cplane[0].create_image(
+    if len(running_servers["servers_cplane"]) > 0:
+        img_cplane = running_servers["servers_cplane"][0].create_image(
             description="cplane-arm64-snapshot-current",
             labels={"state": "current", "arch": "arm64", "role": "control-plane"},
         )
-    if len(servers_node_x86) > 0:
-        img_node_x86 = servers_node_x86[0].create_image(
+    if len(running_servers["servers_node_x86"]) > 0:
+        img_node_x86 = running_servers["servers_node_x86"][0].create_image(
             description="node-x86-snapshot-current",
             labels={"state": "current", "arch": "x86", "role": "node"},
         )
-    if len(servers_node_arm) > 0:
-        img_node_arm = servers_node_arm[0].create_image(
+    if len(running_servers["servers_node_arm"]) > 0:
+        img_node_arm = running_servers["servers_node_arm"][0].create_image(
             description="node-arm64-snapshot-current",
             labels={"state": "current", "arch": "arm64", "role": "node"},
         )
@@ -276,15 +344,20 @@ def delete_servers(htz_client: Client, logger: logging):
     # Wait until all snapshots are created before deleting servers
     img_db.action.wait_until_finished(max_retries=500)
     img_cplane.action.wait_until_finished(max_retries=500)
-    if len(servers_node_x86) > 0:
+    if len(running_servers["servers_node_x86"]) > 0:
         img_node_x86.action.wait_until_finished(max_retries=500)
-    if len(servers_node_arm) > 0:
+    if len(running_servers["servers_node_arm"]) > 0:
         img_node_arm.action.wait_until_finished(max_retries=500)
     logging.info("Completed")
 
     # Delete servers
     logging.info("Deleting servers")
-    all_servers = servers_db + servers_cplane + servers_node_x86 + servers_node_arm
+    all_servers = (
+        running_servers["servers_db"]
+        + running_servers["servers_cplane"]
+        + running_servers["servers_node_x86"]
+        + running_servers["servers_node_arm"]
+    )
     for server in all_servers:
         server.delete()
     logging.info("Completed")
@@ -296,15 +369,21 @@ def main():
     parser = argparse.ArgumentParser(
         description="Creates and deletes my k3s instances in hetzner cloud."
     )
-    parser.add_argument(
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
         "--create",
         action="store_true",
         help="Create servers.",
     )
-    parser.add_argument(
+    group.add_argument(
         "--delete",
         action="store_true",
         help="Delete servers.",
+    )
+    group.add_argument(
+        "--list",
+        action="store_true",
+        help="List running servers.",
     )
     parser.add_argument(
         "--arm-nodes",
@@ -343,6 +422,9 @@ def main():
     if args["delete"]:
         logger.info("Action: delete servers")
         delete_servers(htz_client, logger)
+    if args["list"]:
+        logger.info("Action: list servers")
+        list_running_servers(htz_client, logger)
 
 
 if __name__ == "__main__":
