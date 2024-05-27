@@ -256,32 +256,7 @@ def create_servers(
 
     return
 
-
-def delete_servers(htz_client: Client, logger: logging):
-    """
-    Delete 'old' snapshot, update 'current' snapshot to become 'old', create new 'current' snapshot, and delete all servers.
-    :param htz_client:  hcloud client with valid token to perform read and write operations
-    :param logger:      logger to be used to print information to stdout.
-    :return:            void
-    """
-    logger.info("Checking if there are servers running")
-    servers = list_running_servers(htz_client, logger)
-
-    servers_db = servers["servers_db"]
-    servers_cplane = servers["servers_cplane"]
-    servers_node_x86 = servers["servers_node_x86"]
-    servers_node_arm = servers["servers_node_arm"]
-
-    if (
-        len(servers_db)
-        == len(servers_cplane)
-        == len(servers_node_x86)
-        == len(servers_node_arm)
-        == 0
-    ):
-        logging.error(f"Exiting since there are no servers to delete")
-        sys.exit(1)
-
+def backup_images(htz_client: Client, logger: logging):
     # Retrieve 'old' snapshots so we can delete them. 'current' snapshots will become old
     logger.info("Retrieving existing images")
     images = get_images(htz_client, "old")
@@ -342,13 +317,49 @@ def delete_servers(htz_client: Client, logger: logging):
         )
 
     # Wait until all snapshots are created before deleting servers
-    img_db.action.wait_until_finished(max_retries=500)
-    img_cplane.action.wait_until_finished(max_retries=500)
+    if len(running_servers["servers_db"]) > 0:
+        img_db.action.wait_until_finished(max_retries=500)
+    if len(running_servers["servers_cplane"]) > 0:
+        img_cplane.action.wait_until_finished(max_retries=500)
     if len(running_servers["servers_node_x86"]) > 0:
         img_node_x86.action.wait_until_finished(max_retries=500)
     if len(running_servers["servers_node_arm"]) > 0:
         img_node_arm.action.wait_until_finished(max_retries=500)
     logging.info("Completed")
+
+    return
+
+
+def delete_servers(htz_client: Client, logger: logging, backup: Bool):
+    """
+    Delete 'old' snapshot, update 'current' snapshot to become 'old', create new 'current' snapshot, and delete all servers.
+    :param htz_client:  hcloud client with valid token to perform read and write operations
+    :param logger:      logger to be used to print information to stdout.
+    :return:            void
+    """
+    logger.info("Checking if there are servers running")
+    servers = list_running_servers(htz_client, logger)
+
+    servers_db = servers["servers_db"]
+    servers_cplane = servers["servers_cplane"]
+    servers_node_x86 = servers["servers_node_x86"]
+    servers_node_arm = servers["servers_node_arm"]
+
+    if (
+        len(servers_db)
+        == len(servers_cplane)
+        == len(servers_node_x86)
+        == len(servers_node_arm)
+        == 0
+    ):
+        logging.error(f"Exiting since there are no servers to delete")
+        sys.exit(1)
+
+    if backup:
+        logger.info("Taking backup of running images")
+        backup_images(htz_client, logger)
+    else:
+        logger.info("Skipping backup")
 
     # Delete servers
     logging.info("Deleting servers")
@@ -376,9 +387,14 @@ def main():
         help="Create servers.",
     )
     group.add_argument(
-        "--delete",
+        "--delete-with-backup",
         action="store_true",
-        help="Delete servers.",
+        help="Delete servers and takes snapshot before doing so.",
+    )
+    group.add_argument(
+        "--delete-no-backup",
+        action="store_true",
+        help="Delete servers and don't take backup of image.",
     )
     group.add_argument(
         "--list",
@@ -419,9 +435,12 @@ def main():
     if args["create"]:
         logger.info("Action: create servers")
         create_servers(htz_client, args["arm_nodes"], args["x86_nodes"], logger)
-    if args["delete"]:
-        logger.info("Action: delete servers")
-        delete_servers(htz_client, logger)
+    if args["delete_with_backup"]:
+        logger.info("Action: delete servers with backup")
+        delete_servers(htz_client, logger, backup=True)
+    if args["delete_no_backup"]:
+        logger.info("Action: delete servers without backup")
+        delete_servers(htz_client, logger, backup=False)
     if args["list"]:
         logger.info("Action: list servers")
         list_running_servers(htz_client, logger)
