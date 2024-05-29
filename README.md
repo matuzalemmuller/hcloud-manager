@@ -28,5 +28,5 @@ Python script to manage my hetzner servers used for k3s studying.
 ./manager.py --create --arm-nodes 3 --x86-nodes 3
 
 # Take snapshots and delete all servers
-./manager.py --delete
+./manager.py --delete-with-backup
 ```
