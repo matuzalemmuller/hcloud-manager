@@ -256,6 +256,7 @@ def create_servers(
 
     return
 
+
 def backup_images(htz_client: Client, logger: logging):
     # Retrieve 'old' snapshots so we can delete them. 'current' snapshots will become old
     logger.info("Retrieving existing images")
@@ -330,7 +331,7 @@ def backup_images(htz_client: Client, logger: logging):
     return
 
 
-def delete_servers(htz_client: Client, logger: logging, backup: Bool):
+def delete_servers(htz_client: Client, logger: logging, backup: bool):
     """
     Delete 'old' snapshot, update 'current' snapshot to become 'old', create new 'current' snapshot, and delete all servers.
     :param htz_client:  hcloud client with valid token to perform read and write operations
@@ -363,12 +364,7 @@ def delete_servers(htz_client: Client, logger: logging, backup: Bool):
 
     # Delete servers
     logging.info("Deleting servers")
-    all_servers = (
-        running_servers["servers_db"]
-        + running_servers["servers_cplane"]
-        + running_servers["servers_node_x86"]
-        + running_servers["servers_node_arm"]
-    )
+    all_servers = servers_db + servers_cplane + servers_node_x86 + servers_node_arm
     for server in all_servers:
         server.delete()
     logging.info("Completed")
