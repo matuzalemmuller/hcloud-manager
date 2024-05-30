@@ -153,7 +153,7 @@ def create_servers(
         server_type=ServerType(name="cax11"),
         image=Image(id=images["control_plane"]),
         location=Location(name="hel1"),
-        public_net=ServerCreatePublicNetwork(enable_ipv4=False, enable_ipv6=True),
+        public_net=ServerCreatePublicNetwork(enable_ipv4=True, enable_ipv6=True),
         ssh_keys=[SSHKey(name="thinkpad-generated")],
         firewalls=htz_client.firewalls.get_all(name="ssh-only"),
         labels={"role": "control-plane"},
@@ -167,7 +167,7 @@ def create_servers(
         server_type=ServerType(name="cax11"),
         image=Image(id=images["db"]),
         location=Location(name="hel1"),
-        public_net=ServerCreatePublicNetwork(enable_ipv4=False, enable_ipv6=True),
+        public_net=ServerCreatePublicNetwork(enable_ipv4=True, enable_ipv6=True),
         ssh_keys=[SSHKey(name="thinkpad-generated")],
         firewalls=htz_client.firewalls.get_all(name="ssh-only"),
         labels={"role": "db"},
@@ -185,7 +185,7 @@ def create_servers(
                 image=Image(id=images["node_arm64"]),
                 location=Location(name="hel1"),
                 public_net=ServerCreatePublicNetwork(
-                    enable_ipv4=False, enable_ipv6=True
+                    enable_ipv4=True, enable_ipv6=True
                 ),
                 ssh_keys=[SSHKey(name="thinkpad-generated")],
                 firewalls=htz_client.firewalls.get_all(name="ssh-only"),
@@ -202,7 +202,7 @@ def create_servers(
                 image=Image(id=images["node_x86"]),
                 location=Location(name="hel1"),
                 public_net=ServerCreatePublicNetwork(
-                    enable_ipv4=False, enable_ipv6=True
+                    enable_ipv4=True, enable_ipv6=True
                 ),
                 ssh_keys=[SSHKey(name="thinkpad-generated")],
                 firewalls=htz_client.firewalls.get_all(name="ssh-only"),
@@ -220,7 +220,7 @@ def create_servers(
     ).wait_until_finished(max_retries=500)
     htz_client.servers.power_on(control_plane.server)
     logger.info(
-        f"Created control plane: {control_plane.server.name}. External IP: {control_plane.server.public_net.ipv6.ip}. Internal IP: 10.0.0.2"
+        f"Created control plane: {control_plane.server.name}. External IP: {control_plane.server.public_net.ipv4.ip}. Internal IP: 10.0.0.2"
     )
 
     # Assign IP address to maria db before turning on server
@@ -232,7 +232,7 @@ def create_servers(
     ).wait_until_finished(max_retries=500)
     htz_client.servers.power_on(db.server)
     logger.info(
-        f"Created db: {db.server.name}. External IP: {db.server.public_net.ipv6.ip}. Internal IP: 10.0.0.5"
+        f"Created db: {db.server.name}. External IP: {db.server.public_net.ipv4.ip}. Internal IP: 10.0.0.5"
     )
 
     # Assign IP addresses to nodes before turning on servers
@@ -251,7 +251,7 @@ def create_servers(
         ).wait_until_finished(max_retries=500)
         htz_client.servers.power_on(node.server)
         logger.info(
-            f"Created node {node.server.name}. External IP: {node.server.public_net.ipv6.ip}. Internal IP: {internal_ip}"
+            f"Created node {node.server.name}. External IP: {node.server.public_net.ipv4.ip}. Internal IP: {internal_ip}"
         )
 
     return
