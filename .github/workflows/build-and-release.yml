@@ -1,0 +1,25 @@
+name: Build and release deb package
+
+on: ['push']
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    container:
+      image: debian:bookworm #  too lazy to create a separete docker container, just use base debian and install the dependencies on the fly
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install build requirements
+        run: apt update && apt install -y debhelper dh-virtualenv libffi-dev python3-setuptools python3-pip
+      - name: Build dpkg
+        run: make build
+      - name: Install dpkg
+        run: dpkg -i build/dpkg/hcloud-manager.deb
+      - name: Confirm that binary runs
+        run: /usr/bin/hcloud-manager --help
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          make_latest: True
+          files: build/dpkg/hcloud-manager.deb
