@@ -1,9 +1,6 @@
 name: Create release
 
 on:
-  push:
-    branches:
-      - "dpkg"
   workflow_run:
     workflows: ["Build and test deb package"] # only run when that workflow completes
     types:
@@ -11,7 +8,6 @@ on:
 
 jobs:
   publish-release:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-24.04
     container:
       image: debian:bookworm
