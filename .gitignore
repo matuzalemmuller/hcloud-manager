@@ -1,21 +1,19 @@
-- import_tasks: vscode.yml
-n
 __pycache__
 
 # virtualenv
 /env
-/venv
 
-# Local releases
+# Local releases/build
 *egg-info
 /build
 /dist
-debian/.debhelper/*
+debian/.debhelper/
 debian/hcloud-manager*
+!debian/hcloud-manager.links
+debian/debhelper-build-stamp
 
 # VSCode files
 .vscode
 
 # Local notes
 TODO.md
-

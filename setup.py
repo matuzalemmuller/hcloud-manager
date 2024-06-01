@@ -5,7 +5,7 @@ from setuptools import setup
 setup(
     name="hcloudmanager",
     version="1.0.0",
-    description="test",
+    description="",
     url="https://github.com/matuzalemmuller/hcloud-manager",
     author="Matuzalem (Mat) Muller",
     author_email="matuzalemtech@gmail.com",
@@ -14,11 +14,8 @@ setup(
     include_package_data=True,
     install_requires=["hcloud"],
     entry_points={"console_scripts": ["hcloudmanager = hcloudmanager.__main__:main"]},
-    python_requires=">=3.5",  # f-strings
+    python_requires=">=3.10",  # 3.10 just because I haven't tested an older version ¯\_(ツ)_/¯
     classifiers=[
-        "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Information Technology",
-        "Operating System :: OS Independent",
-        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     ],
 )

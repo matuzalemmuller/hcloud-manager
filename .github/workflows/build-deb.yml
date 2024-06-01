@@ -1,0 +1,19 @@
+name: Build deb
+on: [push]
+jobs:
+  syntax-check:
+    runs-on: ubuntu-24.04
+    container:
+      image: debian/bookworm #  too lazy to create a separete docker container, just use base debian and install the dependencies on the fly
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install build requirements
+        run: apt update && apt install -y debhelper dh-virtualenv libffi-dev python3-setuptools python3-pip
+      - name: Confirm that binary runs
+        run: /usr/bin/hcloud-manager --help
+      - name: Draft Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: True
+          files: build/dpkg/*.deb

@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
+import configparser
+import getpass
 import logging
 import sys
 
+# Not doing much exception handling because I want the script to bomb out with the entire exeption stack if anything fails ¯\_(ツ)_/¯
 from hcloud import Client
 from hcloud.locations import Location
 from hcloud.images import Image
@@ -11,10 +14,6 @@ from hcloud.networks.domain import Network
 from hcloud.server_types import ServerType
 from hcloud.servers.domain import ServerCreatePublicNetwork
 from hcloud.ssh_keys import SSHKey
-
-# Hcloud token. Needs read and write permissions.
-# https://docs.hetzner.com/cloud/api/getting-started/generating-api-token/
-HCLOUD_TOKEN = ""
 
 
 def create_logger():
@@ -25,6 +24,36 @@ def create_logger():
         stream=sys.stdout,
     )
     return logging
+
+
+def parse_config(first_login: bool, logger: logging):
+    """
+    Manage hcloud token stored at /home/$USER/.hcloud_token.
+    The token needs read and write permissions.
+    https://docs.hetzner.com/cloud/api/getting-started/generating-api-token/
+
+    :return token:    token string.
+    """
+    config_file = "/home/" + getpass.getuser() + "/.hcloud_token"
+    config = configparser.ConfigParser()
+
+    if not first_login:
+        config.read(config_file)
+
+    if not config.has_option("token", "hcloud_token"):
+        logger.info("No token found at " + config_file)
+        token = input("Provide Hetzner API token: ")
+        config["token"] = {"hcloud_token": token}
+
+        try:
+            with open(config_file, "w") as file:
+                config.write(file)
+                logger.info("Saved token at " + config_file)
+        except Exception as error:
+            print(error)
+            sys.exit(1)
+
+    return config["token"]["hcloud_token"]
 
 
 def get_images(htz_client: Client, state: str):
@@ -374,40 +403,45 @@ def delete_servers(htz_client: Client, logger: logging, backup: bool):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Creates and deletes my k3s instances in hetzner cloud."
+        description="Creates and deletes my VMs in hetzner cloud. I use this for quickly creating and deleting a small k3s cluster."
     )
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
+        "--add-token",
+        action="store_true",
+        help="add hcloud token to config",
+    )
+    group.add_argument(
         "--create",
         action="store_true",
-        help="Create servers.",
+        help="create servers",
     )
     group.add_argument(
         "--delete-with-backup",
         action="store_true",
-        help="Delete servers and takes snapshot before doing so.",
+        help="take snapshots and delete servers",
     )
     group.add_argument(
         "--delete-no-backup",
         action="store_true",
-        help="Delete servers and don't take backup of image.",
+        help="delete servers without taking snapshot",
     )
     group.add_argument(
         "--list",
         action="store_true",
-        help="List running servers.",
+        help="list running servers",
     )
     parser.add_argument(
         "--arm-nodes",
         required=False,
         type=int,
-        help="Number of arm64 nodes. Must be equal or larger than 1",
+        help="number of arm64 vms. Must be equal or larger than 1",
     )
     parser.add_argument(
         "--x86-nodes",
         required=False,
         type=int,
-        help="Number of x86 nodes. Must be equal or larger than 1",
+        help="number of x86 vms. Must be equal or larger than 1",
     )
     args = vars(parser.parse_args())
 
@@ -426,7 +460,13 @@ def main():
     if args["arm_nodes"] is not None and args["arm_nodes"] < 1:
         logger.error("arm-nodes must be larger than 0")
 
-    htz_client = Client(token=HCLOUD_TOKEN)
+    if args["add_token"]:
+        logger.info("Action: add hcloud token to config")
+        parse_config(True, logger)
+        sys.exit(0)
+
+    hcloud_token = parse_config(False, logger)
+    htz_client = Client(token=hcloud_token)
 
     if args["create"]:
         logger.info("Action: create servers")
