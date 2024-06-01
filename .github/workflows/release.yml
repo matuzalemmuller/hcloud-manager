@@ -1,0 +1,27 @@
+name: Create release
+
+on:
+  push:
+    branches:
+      - "dpkg"
+  workflow_run:
+    workflows: ["Build and test deb package"] # only run when that workflow completes
+    types:
+      - completed
+
+jobs:
+  publish-release:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-24.04
+    container:
+      image: debian:bookworm
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+      - name: List files
+        run: ls -la
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          make_latest: True
+          files: hcloud-manager.deb
