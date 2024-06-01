@@ -1,0 +1,13 @@
+Source: hcloud-manager
+Section: python
+Priority: extra
+Maintainer: Matuzalem (Mat) Muller <matuzalemtech@gmail.com>
+Build-Depends: debhelper (>= 9), python3, dh-virtualenv (>= 1.0),
+    python3-setuptools, python3-pip, python3-dev, libffi-dev
+Standards-Version: 3.9.5
+
+Package: hcloud-manager
+Architecture: any
+Pre-Depends: dpkg (>= 1.16.1), python3 (>= 3.5), ${misc:Pre-Depends}
+Depends: ${misc:Depends}
+Description: My CLI app to manage VMs in hetzner cloud.
