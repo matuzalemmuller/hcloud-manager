@@ -1,7 +1,7 @@
 name: Build deb
 on: [push]
 jobs:
-  build-and-release:
+  build:
     runs-on: ubuntu-24.04
     container:
       image: debian:bookworm #  too lazy to create a separete docker container, just use base debian and install the dependencies on the fly
@@ -13,11 +13,27 @@ jobs:
       - name: Build dpkg
         run: make build
       - name: Install dpkg
-        run: dpkg -i build/dpkg/hcloud-manager*.deb
+        run: dpkg -i build/dpkg/hcloud-manager.deb
       - name: Confirm that binary runs
         run: /usr/bin/hcloud-manager --help
-      - name: Draft Release
+      - name: Upload dpkg to publish release
+        if: github.ref == 'refs/heads/dpkg'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hcloud-manager.deb
+          path: build/dpkg/hcloud-manager.deb
+  publish-release:
+    if: github.ref == 'refs/heads/dpkg'
+    runs-on: ubuntu-24.04
+    container:
+      image: debian:bookworm
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: hcloud-manager.deb
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          draft: True
-          files: build/dpkg/*.deb
+          make_latest: True
+          files: hcloud-manager.deb

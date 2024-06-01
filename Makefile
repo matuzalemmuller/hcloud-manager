@@ -15,6 +15,8 @@ build:
 	mkdir build/dpkg
 	mv ../hcloud-manager*.deb build/dpkg/
 	mv ../hcloud-manager_* build/dpkg/
-	@echo "Install .deb using:\n\t sudo dpkg -i build/dpkg/hcloud-manager*.deb"
+	rm build/dpkg/*dbgsym*								# stupid
+	mv build/dpkg/*.deb build/dpkg/hcloud-manager.deb	# but works
+	@echo "Install .deb using:\n\t sudo dpkg -i build/dpkg/hcloud-manager.deb"
 
 all: clean build
