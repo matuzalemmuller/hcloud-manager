@@ -30,8 +30,8 @@ jobs:
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
-        with:
-          name: hcloud-manager.deb
+      - name: List files
+        run: ls -la
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
