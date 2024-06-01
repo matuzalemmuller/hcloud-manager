@@ -1,10 +1,6 @@
 name: Build and test deb package
 
-on:
-  push:
-    branches:
-      - "dpkg"
-
+on: ['push']
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -22,7 +18,6 @@ jobs:
       - name: Confirm that binary runs
         run: /usr/bin/hcloud-manager --help
       - name: Upload dpkg to publish release
-        if: github.ref == 'refs/heads/dpkg'
         uses: actions/upload-artifact@v4
         with:
           name: hcloud-manager.deb
