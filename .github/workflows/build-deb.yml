@@ -1,10 +1,10 @@
 name: Build deb
 on: [push]
 jobs:
-  syntax-check:
+  build-and-release:
     runs-on: ubuntu-24.04
     container:
-      image: debian/bookworm #  too lazy to create a separete docker container, just use base debian and install the dependencies on the fly
+      image: debian:bookworm #  too lazy to create a separete docker container, just use base debian and install the dependencies on the fly
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
