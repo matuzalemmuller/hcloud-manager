@@ -2,7 +2,7 @@
 
 I use this to manage some instances in hetzner cloud. **Not open for pull requests/issues/feedback; it won't work for you, and it's mostly spaghetti code.** :spaghetti:
 
-The idea is that servers can be created and deleted based on specific snapshots labels and naming convention, and the trick is that snapshots are created before deleting servers, so it's easy to recreate the infrastructure using those.
+The idea is that servers can be created and deleted based on specific snapshot labels and naming convention, and the trick is that snapshots are created before deleting servers, so it's easy to recreate the infrastructure using those.
 
 I'm only making the repo public so I can use it easily with [my ansible setup script](https://github.com/matuzalemmuller/setup-workstation), and so I have a public example on how to build a .deb package from a python3 virtualenv using [dh-virtualenv](https://github.com/spotify/dh-virtualenv).
 
