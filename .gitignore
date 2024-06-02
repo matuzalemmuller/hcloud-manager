@@ -8,6 +8,7 @@ __pycache__
 /build
 /dist
 debian/.debhelper/
+debian/files
 debian/hcloud-manager*
 !debian/hcloud-manager.links
 debian/debhelper-build-stamp

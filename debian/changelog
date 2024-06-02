@@ -1,5 +1,5 @@
-hcloud-manager (1.0.0) unstable; urgency=low
+hcloud-manager (1.1.0) stable; urgency=low
 
-  * Initial release
+  * Add flags for vm spec
 
- -- Matuzalem (Mat) Muller <matuzalemtech@gmail.com>  Fri, 31 May 2024 22:00:00 -0500
+ -- Matuzalem (Mat) Muller <matuzalemtech@gmail.com>  Sun, 02 Jun 2024 01:00:00 -0500

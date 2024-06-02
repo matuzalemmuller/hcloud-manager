@@ -30,7 +30,8 @@ Last warning: this won't work for you. So, not putting a lot of details here, ju
 
 ```
 root@a867062d6e20:/hcloud-manager# hcloud-manager --help
-usage: hcloud-manager [-h] [--add-token | --create | --delete-with-backup | --delete-no-backup | --list] [--arm-nodes ARM_NODES] [--x86-nodes X86_NODES]
+usage: __main__.py [-h] [--add-token | --create | --delete-with-backup | --delete-no-backup | --list] [--arm-nodes [ARM_NODES]] [--x86-nodes [X86_NODES]] [--cplane-spec [CPLANE_SPEC]]
+                   [--arm-node-spec [ARM_NODE_SPEC]] [--x86-node-spec [X86_NODE_SPEC]]
 
 Creates and deletes my VMs in hetzner cloud. I use this for quickly creating and deleting a small k3s cluster.
 
@@ -41,8 +42,14 @@ options:
   --delete-with-backup  take snapshots and delete servers
   --delete-no-backup    delete servers without taking snapshot
   --list                list running servers
-  --arm-nodes ARM_NODES
-                        Number of arm64 nodes. Must be equal or larger than 1
-  --x86-nodes X86_NODES
-                        Number of x86 nodes. Must be equal or larger than 1
+  --arm-nodes [ARM_NODES]
+                        number of arm64 vms. Must be greater or equal to 1. Default = 2
+  --x86-nodes [X86_NODES]
+                        number of x86 vms. Must be greater or equal to 1. Default = 1
+  --cplane-spec [CPLANE_SPEC]
+                        server type for control plane. Default = cax11
+  --arm-node-spec [ARM_NODE_SPEC]
+                        server type for arm nodes. Default = cax11
+  --x86-node-spec [X86_NODE_SPEC]
+                        server type for x86 nodes. Default = cpx11
 ```

@@ -60,8 +60,8 @@ def get_images(htz_client: Client, state: str):
     """
     Gets snapshot ID for all servers.
 
-    :param htz_client: hcloud client with valid token to perform read operations
-    :param state:      snapshot state. Valid values are 'old' and 'current'
+    :param htz_client: hcloud client with valid token to perform read operations.
+    :param state:      snapshot state. Valid values are 'old' and 'current'.
     :return images:    list of snapshot IDs.
     """
     images = dict()
@@ -99,7 +99,7 @@ def get_images(htz_client: Client, state: str):
 def list_running_servers(htz_client: Client, logger: logging):
     """
     Returns dictionary with lists of running servers.
-    :param htz_client:  hcloud client with valid token to perform read and write operations
+    :param htz_client:  hcloud client with valid token to perform read and write operations.
     :param logger:      logger to be used to print information to stdout.
     :return:            dictionary with lists of running servers [BoundImage]
     """
@@ -133,21 +133,25 @@ def list_running_servers(htz_client: Client, logger: logging):
 
 
 def create_servers(
-    htz_client: Client, n_arm_nodes: int, n_x86_nodes: int, logger: logging
+    htz_client: Client,
+    logger: logging,
+    n_arm_nodes: int,
+    n_x86_nodes: int,
+    type_control_plane: str,
+    type_arm_nodes: str,
+    type_x86_node: str,
 ):
     """
     Creates servers:    k3s control plane, nodes, and a maria db.
-    :param htz_client:  hcloud client with valid token to perform read and write operations
-    :param n_arm_nodes: number of arm nodes to create. Must be equal of larger than 1 or not be provided.
-    :param n_x86_nodes: number of arm nodes to create. Must be equal of larger than 1 or not be provided.
+    :param htz_client:  hcloud client with valid token to perform read and write operations.
+    :param n_arm_nodes: number of arm nodes to create. Must be greater or equal to 1.
+    :param n_x86_nodes: number of x86 nodes to create. Must be greater or equal to 1.
+    :param type_control_plane: server spec to be used for control plane.
+    :param type_arm_nodes: server spec to be used for arm nodes.
+    :param type_x86_node: server spec to be used for x86 nodes.
     :param logger:      logger to be used to print information to stdout.
     :return:            void
     """
-    if not n_arm_nodes:
-        n_arm_nodes = 2
-
-    if not n_x86_nodes:
-        n_x86_nodes = 1
 
     logger.info("Checking if there are already servers created")
     servers = list_running_servers(htz_client, logger)
@@ -179,7 +183,7 @@ def create_servers(
     logger.info(f"Creating control plane k3s-control-plane...")
     control_plane = htz_client.servers.create(
         name="k3s-control-plane",
-        server_type=ServerType(name="cax11"),
+        server_type=ServerType(name=type_control_plane),
         image=Image(id=images["control_plane"]),
         location=Location(name="hel1"),
         public_net=ServerCreatePublicNetwork(enable_ipv4=True, enable_ipv6=True),
@@ -193,7 +197,7 @@ def create_servers(
     logger.info(f"Creating server: maria-db...")
     db = htz_client.servers.create(
         name="maria-db",
-        server_type=ServerType(name="cax11"),
+        server_type=ServerType(name=type_arm_nodes),
         image=Image(id=images["db"]),
         location=Location(name="hel1"),
         public_net=ServerCreatePublicNetwork(enable_ipv4=True, enable_ipv6=True),
@@ -210,7 +214,7 @@ def create_servers(
         nodes.append(
             htz_client.servers.create(
                 name=f"k3s-node-arm-{i}",
-                server_type=ServerType(name="cax11"),
+                server_type=ServerType(name=type_arm_nodes),
                 image=Image(id=images["node_arm64"]),
                 location=Location(name="hel1"),
                 public_net=ServerCreatePublicNetwork(
@@ -227,7 +231,7 @@ def create_servers(
         nodes.append(
             htz_client.servers.create(
                 name=f"k3s-node-x86-{i}",
-                server_type=ServerType(name="cpx11"),
+                server_type=ServerType(name=type_x86_node),
                 image=Image(id=images["node_x86"]),
                 location=Location(name="hel1"),
                 public_net=ServerCreatePublicNetwork(
@@ -241,7 +245,7 @@ def create_servers(
         )
 
     # Assign IP address to control plane before turning on server
-    logger.info(f"Waiting for control plane to finish creating")
+    logger.info(f"Waiting for control plane creation")
     control_plane.action.wait_until_finished(max_retries=200)
     logger.info(f"Attaching internal IP address to control plane: 10.0.0.2")
     assign_ip = htz_client.servers.attach_to_network(
@@ -253,7 +257,7 @@ def create_servers(
     )
 
     # Assign IP address to maria db before turning on server
-    logger.info(f"Waiting for maria-db to finish creating")
+    logger.info(f"Waiting for maria-db creation")
     db.action.wait_until_finished(max_retries=200)
     logger.info(f"Attaching internal IP address to maria-db: 10.0.0.5")
     assign_ip = htz_client.servers.attach_to_network(
@@ -266,7 +270,7 @@ def create_servers(
 
     # Assign IP addresses to nodes before turning on servers
     for i, node in enumerate(nodes, start=1):
-        logger.info(f"Waiting for node {node.server.name} to finish creating")
+        logger.info(f"Waiting for node {node.server.name} creation")
         node.action.wait_until_finished(max_retries=200)
         last_octet = i + 9
         internal_ip = f"10.0.0.{last_octet}"
@@ -363,7 +367,7 @@ def backup_images(htz_client: Client, logger: logging):
 def delete_servers(htz_client: Client, logger: logging, backup: bool):
     """
     Delete 'old' snapshot, update 'current' snapshot to become 'old', create new 'current' snapshot, and delete all servers.
-    :param htz_client:  hcloud client with valid token to perform read and write operations
+    :param htz_client:  hcloud client with valid token to perform read and write operations.
     :param logger:      logger to be used to print information to stdout.
     :return:            void
     """
@@ -434,14 +438,44 @@ def main():
     parser.add_argument(
         "--arm-nodes",
         required=False,
+        nargs="?",
+        const=2,
+        default=2,
         type=int,
-        help="number of arm64 vms. Must be equal or larger than 1",
+        help="number of arm64 vms. Must be greater or equal to 1. Default = 2",
     )
     parser.add_argument(
         "--x86-nodes",
         required=False,
+        nargs="?",
+        const=1,
+        default=1,
         type=int,
-        help="number of x86 vms. Must be equal or larger than 1",
+        help="number of x86 vms. Must be greater or equal to 1. Default = 1",
+    )
+    parser.add_argument(
+        "--cplane-spec",
+        required=False,
+        nargs="?",
+        default="cax11",
+        type=str,
+        help="server type for control plane. Default = cax11",
+    )
+    parser.add_argument(
+        "--arm-node-spec",
+        required=False,
+        nargs="?",
+        default="cax11",
+        type=str,
+        help="server type for arm nodes. Default = cax11",
+    )
+    parser.add_argument(
+        "--x86-node-spec",
+        required=False,
+        nargs="?",
+        default="cpx11",
+        type=str,
+        help="server type for x86 nodes. Default = cpx11",
     )
     args = vars(parser.parse_args())
 
@@ -470,16 +504,24 @@ def main():
 
     if args["create"]:
         logger.info("Action: create servers")
-        create_servers(htz_client, args["arm_nodes"], args["x86_nodes"], logger)
+        create_servers(
+            htz_client=htz_client,
+            logger=logger,
+            n_arm_nodes=args["arm_nodes"],
+            n_x86_nodes=args["x86_nodes"],
+            type_control_plane=args["cplane_spec"],
+            type_arm_nodes=args["arm_node_spec"],
+            type_x86_node=args["x86_node_spec"],
+        )
     if args["delete_with_backup"]:
         logger.info("Action: delete servers with backup")
-        delete_servers(htz_client, logger, backup=True)
+        delete_servers(htz_client=htz_client, logger=logger, backup=True)
     if args["delete_no_backup"]:
         logger.info("Action: delete servers without backup")
-        delete_servers(htz_client, logger, backup=False)
+        delete_servers(htz_client=htz_client, logger=logger, backup=False)
     if args["list"]:
         logger.info("Action: list servers")
-        list_running_servers(htz_client, logger)
+        list_running_servers(htz_client=htz_client, logger=logger)
 
 
 if __name__ == "__main__":
