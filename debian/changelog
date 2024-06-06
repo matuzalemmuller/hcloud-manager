@@ -1,5 +1,5 @@
-hcloud-manager (1.1.0) stable; urgency=low
+hcloud-manager (1.1.1) stable; urgency=low
 
-  * Add flags for vm spec
+  * Tweak creation of differnt vm specs for cost optimization
 
- -- Matuzalem (Mat) Muller <matuzalemtech@gmail.com>  Sun, 02 Jun 2024 01:00:00 -0500
+ -- Matuzalem (Mat) Muller <matuzalemtech@gmail.com>  Wed, 05 Jun 2024 01:00:00 -0500

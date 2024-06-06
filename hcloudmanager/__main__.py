@@ -138,7 +138,7 @@ def create_servers(
     n_arm_nodes: int,
     n_x86_nodes: int,
     type_control_plane: str,
-    type_arm_nodes: str,
+    type_arm_node: str,
     type_x86_node: str,
 ):
     """
@@ -147,7 +147,7 @@ def create_servers(
     :param n_arm_nodes: number of arm nodes to create. Must be greater or equal to 1.
     :param n_x86_nodes: number of x86 nodes to create. Must be greater or equal to 1.
     :param type_control_plane: server spec to be used for control plane.
-    :param type_arm_nodes: server spec to be used for arm nodes.
+    :param type_arm_node: server spec to be used for arm nodes.
     :param type_x86_node: server spec to be used for x86 nodes.
     :param logger:      logger to be used to print information to stdout.
     :return:            void
@@ -180,10 +180,10 @@ def create_servers(
     logger.info(f"Images found: {images}")
 
     # Create control plane
-    logger.info(f"Creating control plane k3s-control-plane...")
+    logger.info(f"Creating server: k3s-control-plane")
     control_plane = htz_client.servers.create(
         name="k3s-control-plane",
-        server_type=ServerType(name=type_control_plane),
+        server_type=ServerType(name="cax11"),
         image=Image(id=images["control_plane"]),
         location=Location(name="hel1"),
         public_net=ServerCreatePublicNetwork(enable_ipv4=True, enable_ipv6=True),
@@ -194,10 +194,10 @@ def create_servers(
     )
 
     # Create maria db
-    logger.info(f"Creating server: maria-db...")
+    logger.info(f"Creating server: maria-db")
     db = htz_client.servers.create(
         name="maria-db",
-        server_type=ServerType(name=type_arm_nodes),
+        server_type=ServerType(name="cax11"),
         image=Image(id=images["db"]),
         location=Location(name="hel1"),
         public_net=ServerCreatePublicNetwork(enable_ipv4=True, enable_ipv6=True),
@@ -210,11 +210,11 @@ def create_servers(
     # Create arm and x86 nodes
     nodes = list()
     for i in range(1, n_arm_nodes + 1):
-        logger.info(f"Creating server: k3s-node-arm-{i}...")
+        logger.info(f"Creating server: k3s-node-arm-{i}")
         nodes.append(
             htz_client.servers.create(
                 name=f"k3s-node-arm-{i}",
-                server_type=ServerType(name=type_arm_nodes),
+                server_type=ServerType(name="cax11"),
                 image=Image(id=images["node_arm64"]),
                 location=Location(name="hel1"),
                 public_net=ServerCreatePublicNetwork(
@@ -227,11 +227,11 @@ def create_servers(
             )
         )
     for i in range(1, n_x86_nodes + 1):
-        logger.info(f"Creating server: k3s-node-x86-{i}...")
+        logger.info(f"Creating server: k3s-node-x86-{i}")
         nodes.append(
             htz_client.servers.create(
                 name=f"k3s-node-x86-{i}",
-                server_type=ServerType(name=type_x86_node),
+                server_type=ServerType(name="cpx11"),
                 image=Image(id=images["node_x86"]),
                 location=Location(name="hel1"),
                 public_net=ServerCreatePublicNetwork(
@@ -245,37 +245,64 @@ def create_servers(
         )
 
     # Assign IP address to control plane before turning on server
-    logger.info(f"Waiting for control plane creation")
+    logger.info(f"Waiting for server creation: {control_plane.server.name}")
     control_plane.action.wait_until_finished(max_retries=200)
-    logger.info(f"Attaching internal IP address to control plane: 10.0.0.2")
+    # If server is not using base type, upgrade (by upgrading we can keep the disk smaller. Otherwise, the server needs to be created with a larger disk)
+    if control_plane.server.server_type.name != type_control_plane:
+        logger.info(
+            f"Upgrading server spec to {type_control_plane}: {control_plane.server.name}"
+        )
+        control_plane.server.change_type(
+            server_type=ServerType(name=type_control_plane), upgrade_disk=False
+        ).wait_until_finished(max_retries=200)
+    logger.info(
+        f"Attaching internal IP address 10.0.0.2 to server: {control_plane.server.name}"
+    )
     assign_ip = htz_client.servers.attach_to_network(
         server=control_plane.server, network=Network(id=4252606), ip="10.0.0.2"
     ).wait_until_finished(max_retries=500)
     htz_client.servers.power_on(control_plane.server)
     logger.info(
-        f"Created control plane: {control_plane.server.name}. External IP: {control_plane.server.public_net.ipv4.ip}. Internal IP: 10.0.0.2"
+        f"Created server: {control_plane.server.name}. External IP: {control_plane.server.public_net.ipv4.ip}. Internal IP: 10.0.0.2"
     )
 
     # Assign IP address to maria db before turning on server
-    logger.info(f"Waiting for maria-db creation")
+    logger.info(f"Waiting for server creation: {db.server.name}")
     db.action.wait_until_finished(max_retries=200)
-    logger.info(f"Attaching internal IP address to maria-db: 10.0.0.5")
+    logger.info(f"Attaching internal IP address 10.0.0.5 to server: {db.server.name}")
     assign_ip = htz_client.servers.attach_to_network(
         server=db.server, network=Network(id=4252606), ip="10.0.0.5"
     ).wait_until_finished(max_retries=500)
     htz_client.servers.power_on(db.server)
     logger.info(
-        f"Created db: {db.server.name}. External IP: {db.server.public_net.ipv4.ip}. Internal IP: 10.0.0.5"
+        f"Created server: {db.server.name}. External IP: {db.server.public_net.ipv4.ip}. Internal IP: 10.0.0.5"
     )
 
     # Assign IP addresses to nodes before turning on servers
     for i, node in enumerate(nodes, start=1):
-        logger.info(f"Waiting for node {node.server.name} creation")
+        logger.info(f"Waiting for server creation: {node.server.name}")
         node.action.wait_until_finished(max_retries=200)
+        # If server is not using base type, upgrade (by upgrading we can keep the disk smaller. Otherwise, the server needs to be created with a larger disk)
+        if node.server.server_type.architecture == "x86":
+            if node.server.server_type.name != type_x86_node:
+                logger.info(
+                    f"Upgrading server spec to {type_x86_node}: {node.server.name}"
+                )
+                node.server.change_type(
+                    server_type=ServerType(name=type_x86_node), upgrade_disk=False
+                ).wait_until_finished(max_retries=200)
+        else:
+            if node.server.server_type.name != type_arm_node:
+                logger.info(
+                    f"Upgrading server spec to {type_arm_node}: {node.server.name}"
+                )
+                node.server.change_type(
+                    server_type=ServerType(name=type_arm_node), upgrade_disk=False
+                ).wait_until_finished(max_retries=200)
         last_octet = i + 9
         internal_ip = f"10.0.0.{last_octet}"
         logger.info(
-            f"Attaching internal IP address to node {node.server.name}: {internal_ip}"
+            f"Attaching internal IP address {internal_ip} to server: {node.server.name}"
         )
         assign_ip = htz_client.servers.attach_to_network(
             server=node.server,
@@ -284,7 +311,7 @@ def create_servers(
         ).wait_until_finished(max_retries=500)
         htz_client.servers.power_on(node.server)
         logger.info(
-            f"Created node {node.server.name}. External IP: {node.server.public_net.ipv4.ip}. Internal IP: {internal_ip}"
+            f"Created server: {node.server.name}. External IP: {node.server.public_net.ipv4.ip}. Internal IP: {internal_ip}"
         )
 
     return
@@ -510,7 +537,7 @@ def main():
             n_arm_nodes=args["arm_nodes"],
             n_x86_nodes=args["x86_nodes"],
             type_control_plane=args["cplane_spec"],
-            type_arm_nodes=args["arm_node_spec"],
+            type_arm_node=args["arm_node_spec"],
             type_x86_node=args["x86_node_spec"],
         )
     if args["delete_with_backup"]:

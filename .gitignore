@@ -1,6 +1,7 @@
 __pycache__
 
 # virtualenv
+/venv
 /env
 
 # Local releases/build
