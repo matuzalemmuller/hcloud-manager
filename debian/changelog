@@ -1,5 +1,5 @@
-hcloud-manager (1.1.2) stable; urgency=low
+hcloud-manager (1.1.3) stable; urgency=low
 
-  * Change default instance types and creation order
+  * Change creation order of control plane and nodes
 
- -- Matuzalem (Mat) Muller <matuzalemtech@gmail.com>  Sat, 15 Jun 2024 20:00:00 -0500
+ -- Matuzalem (Mat) Muller <matuzalemtech@gmail.com>  Sat, 30 Jun 2024 12:00:00 -0500

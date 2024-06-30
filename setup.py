@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name="hcloudmanager",
-    version="1.1.2",
+    version="1.1.3",
     description="",
     url="https://github.com/matuzalemmuller/hcloud-manager",
     author="Matuzalem (Mat) Muller",

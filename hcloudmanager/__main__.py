@@ -179,6 +179,20 @@ def create_servers(
     images = get_images(htz_client, "current")
     logger.info(f"Images found: {images}")
 
+    # Create control plane
+    logger.info(f"Creating server: k3s-control-plane")
+    control_plane = htz_client.servers.create(
+        name="k3s-control-plane",
+        server_type=ServerType(name="cax11"),
+        image=Image(id=images["control_plane"]),
+        location=Location(name="hel1"),
+        public_net=ServerCreatePublicNetwork(enable_ipv4=True, enable_ipv6=True),
+        ssh_keys=[SSHKey(name="thinkpad-generated")],
+        firewalls=htz_client.firewalls.get_all(name="ssh-only"),
+        labels={"role": "control-plane"},
+        start_after_create=False,
+    )
+
     # Create maria db
     logger.info(f"Creating server: maria-db")
     db = htz_client.servers.create(
@@ -230,18 +244,26 @@ def create_servers(
             )
         )
 
-    # Create control plane
-    logger.info(f"Creating server: k3s-control-plane")
-    control_plane = htz_client.servers.create(
-        name="k3s-control-plane",
-        server_type=ServerType(name="cax11"),
-        image=Image(id=images["control_plane"]),
-        location=Location(name="hel1"),
-        public_net=ServerCreatePublicNetwork(enable_ipv4=True, enable_ipv6=True),
-        ssh_keys=[SSHKey(name="thinkpad-generated")],
-        firewalls=htz_client.firewalls.get_all(name="ssh-only"),
-        labels={"role": "control-plane"},
-        start_after_create=False,
+    # Assign IP address to control plane before turning on server
+    logger.info(f"Waiting for server creation: {control_plane.server.name}")
+    control_plane.action.wait_until_finished(max_retries=200)
+    # If server is not using base type, upgrade (by upgrading we can keep the disk smaller. Otherwise, the server needs to be created with a larger disk)
+    if control_plane.server.server_type.name != type_control_plane:
+        logger.info(
+            f"Upgrading server spec to {type_control_plane}: {control_plane.server.name}"
+        )
+        control_plane.server.change_type(
+            server_type=ServerType(name=type_control_plane), upgrade_disk=False
+        ).wait_until_finished(max_retries=200)
+    logger.info(
+        f"Attaching internal IP address 10.0.0.2 to server: {control_plane.server.name}"
+    )
+    assign_ip = htz_client.servers.attach_to_network(
+        server=control_plane.server, network=Network(id=4252606), ip="10.0.0.2"
+    ).wait_until_finished(max_retries=500)
+    htz_client.servers.power_on(control_plane.server)
+    logger.info(
+        f"Created server: {control_plane.server.name}. External IP: {control_plane.server.public_net.ipv4.ip}. Internal IP: 10.0.0.2"
     )
 
     # Assign IP address to maria db before turning on server
@@ -291,28 +313,6 @@ def create_servers(
         logger.info(
             f"Created server: {node.server.name}. External IP: {node.server.public_net.ipv4.ip}. Internal IP: {internal_ip}"
         )
-
-    # Assign IP address to control plane before turning on server
-    logger.info(f"Waiting for server creation: {control_plane.server.name}")
-    control_plane.action.wait_until_finished(max_retries=200)
-    # If server is not using base type, upgrade (by upgrading we can keep the disk smaller. Otherwise, the server needs to be created with a larger disk)
-    if control_plane.server.server_type.name != type_control_plane:
-        logger.info(
-            f"Upgrading server spec to {type_control_plane}: {control_plane.server.name}"
-        )
-        control_plane.server.change_type(
-            server_type=ServerType(name=type_control_plane), upgrade_disk=False
-        ).wait_until_finished(max_retries=200)
-    logger.info(
-        f"Attaching internal IP address 10.0.0.2 to server: {control_plane.server.name}"
-    )
-    assign_ip = htz_client.servers.attach_to_network(
-        server=control_plane.server, network=Network(id=4252606), ip="10.0.0.2"
-    ).wait_until_finished(max_retries=500)
-    htz_client.servers.power_on(control_plane.server)
-    logger.info(
-        f"Created server: {control_plane.server.name}. External IP: {control_plane.server.public_net.ipv4.ip}. Internal IP: 10.0.0.2"
-    )
 
     return
 
@@ -469,7 +469,7 @@ def main():
         const=1,
         default=1,
         type=int,
-        help="number of arm64 vms. Must be greater or equal to 1. Default = 2",
+        help="number of arm64 vms. Must be greater or equal to 1. Default = 1",
     )
     parser.add_argument(
         "--x86-nodes",
